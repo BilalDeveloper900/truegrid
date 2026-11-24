@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrueGrid: MGRS land navigation</title>
+<meta name="description" content="Your exact MGRS grid reference on iPhone, iPad and Apple Watch. Works with no signal. No account, no ads, no tracking.">
+<link rel="icon" href="icon.png">
+<style>
+  @font-face { font-family: Poppins; font-weight: 500; src: url(fonts/Poppins-Medium.ttf); font-display: swap; }
+  @font-face { font-family: Poppins; font-weight: 600; src: url(fonts/Poppins-SemiBold.ttf); font-display: swap; }
+  @font-face { font-family: Poppins; font-weight: 700; src: url(fonts/Poppins-Bold.ttf); font-display: swap; }
+  :root {
+    /* TrueGrid app palette (Theme.swift, light) */
+    --bg: #f4f6f2; --card: #fff; --field: #eef0ec; --ink: #1b1f1a; --muted: #656c62; --line: #e1e5dd;
+    --leaf: #2e7d32; --sprout: #46a83a; --forest: #1f6b2c; --leaf-soft: #e3f1df; --sun: #f2b01e; --radius: 28px;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 500 16px/1.5 Poppins, -apple-system, sans-serif; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+  img { display: block; max-width: 100%; }
+  a { color: inherit; }
+  .mono { font-family: var(--mono); font-size: 14px; line-height: 1.6; color: var(--muted); }
+  .pill { display: inline-block; padding: 4px 12px; border: 1px solid var(--ink); border-radius: 8px; font: 13px var(--mono); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; background: var(--leaf); color: #fff; font-weight: 600; font-size: 15px; text-decoration: none; }
+  .btn.leaf { background: var(--leaf); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; }
+  .center { text-align: center; }
+  .center .mono { max-width: 520px; margin: 14px auto 0; }
+  section { padding: 56px 0; }
+
+  /* phone frame around a plain screenshot */
+  .phone { width: 250px; border: 9px solid #111; border-radius: 46px; overflow: hidden; background: #111; box-shadow: 0 30px 60px rgba(0,0,0,.25); }
+  .phone img { border-radius: 37px; }
+
+  /* nav */
+  nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-decoration: none; }
+  .logo img { width: 34px; height: 34px; border-radius: 9px; }
+  .links { display: flex; gap: 28px; font: 14px var(--mono); }
+  .links a { text-decoration: none; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; position: relative; }
+  .hero-text { background: var(--card); border-radius: var(--radius); padding: 48px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+  .hero-text h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; }
+  .badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .hero-art { background: var(--leaf-soft); border-radius: var(--radius); min-height: 560px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 40px 0; }
+  .hero-art::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(46,125,50,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(46,125,50,.14) 1px, transparent 1px); background-size: 48px 48px; }
+  .hero-art .phone { position: relative; transform: rotate(-4deg); }
+  .chip { position: absolute; z-index: 2; top: 48px; left: 36px; background: rgba(255,255,255,.9); backdrop-filter: blur(8px); border-radius: 16px; padding: 12px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+  .chip small { display: block; font: 11px var(--mono); color: var(--muted); }
+  .chip b { font: 700 20px var(--mono); color: var(--leaf); }
+  .caption { position: absolute; right: 28px; bottom: 24px; font: 12px var(--mono); text-align: right; text-transform: uppercase; }
+  .spin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 120px; height: 120px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; z-index: 2; }
+  .spin svg { position: absolute; inset: 8px; animation: rot 14s linear infinite; }
+  .spin text { font: 11px var(--mono); letter-spacing: 3px; text-transform: uppercase; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin svg { animation: none; } html { scroll-behavior: auto; } }
+
+  /* split rows */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .split .art { background: var(--field); border-radius: var(--radius); display: flex; justify-content: center; padding: 56px 0; }
+  .split .text { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+  .split .text h2 { font-size: clamp(26px, 3.2vw, 34px); }
+  .split.flip .art { order: 2; }
+  .stats { display: flex; gap: 28px; margin-top: 8px; }
+  .stats b { display: block; font-size: 28px; }
+
+  /* feature cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; }
+  .card { background: var(--card); border-radius: 22px; padding: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .card.hot { background: var(--leaf); color: #fff; }
+  .card .ic { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); display: grid; place-items: center; font-size: 20px; background: #fff; }
+  .card h3 { font-size: 18px; }
+  .card .mono { font-size: 13px; }
+  .card.hot .mono { color: var(--leaf-soft); }
+
+  /* devices */
+  .devices { display: flex; justify-content: center; align-items: flex-end; gap: 32px; margin-top: 40px; flex-wrap: wrap; }
+  .ipad { width: min(620px, 100%); border: 12px solid #111; border-radius: 34px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.2); }
+  .watch { width: 170px; border: 12px solid #111; border-radius: 48px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,.25); }
+
+  /* pricing */
+  .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 40px; max-width: 820px; margin-left: auto; margin-right: auto; }
+  .plan { background: var(--card); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; gap: 14px; }
+  .plan.pro { background: var(--forest); color: #fff; }
+  .plan.pro .mono { color: var(--leaf-soft); }
+  .plan.pro li::before { background: rgba(255,255,255,.15); color: #fff; }
+  .price { font-size: 36px; font-weight: 700; }
+  .price small { font-size: 15px; font-weight: 500; opacity: .7; }
+  .plan ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; font-size: 15px; }
+  .plan li::before { content: "✓"; display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 10px; border-radius: 6px; background: var(--leaf-soft); color: var(--leaf); font-weight: 700; font-size: 12px; }
+
+  /* faq */
+  .faq { max-width: 820px; margin: 40px auto 0; border-top: 1px solid var(--line); }
+  details { border-bottom: 1px solid var(--line); padding: 18px 4px; }
+  summary { list-style: none; display: grid; grid-template-columns: 40px 1fr 30px; align-items: center; gap: 12px; cursor: pointer; font-weight: 600; }
+  summary::-webkit-details-marker { display: none; }
+  summary .n { font: 12px var(--mono); color: var(--muted); }
+  summary .plus { width: 30px; height: 30px; border-radius: 8px; background: var(--leaf); color: #fff; display: grid; place-items: center; font-weight: 700; transition: transform .2s; }
+  details[open] summary .plus { transform: rotate(45deg); }
+  details[open] summary .n { background: var(--leaf); color: #fff; border-radius: 6px; text-align: center; padding: 2px 0; }
+  details .mono { margin: 12px 0 0 52px; max-width: 640px; }
+
+  /* footer */
+  .cta { background: var(--forest); color: #fff; border-radius: var(--radius); padding: 56px 40px; text-align: center; display: grid; gap: 16px; justify-items: center; }
+  .cta .mono { color: var(--leaf-soft); }
+  .cta .btn { background: #fff; color: var(--forest); }
+  footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 28px 0 40px; font: 13px var(--mono); color: var(--muted); }
+  footer a { text-decoration: none; margin-left: 20px; }
+
+  @media (max-width: 900px) {
+    .links { display: none; }
+    .hero, .split, .plans { grid-template-columns: 1fr; }
+    .hero-text { padding: 32px 24px; }
+    .hero-art { min-height: 520px; }
+    .spin, .caption, br.d { display: none; }
+    .split { gap: 24px; }
+    .split.flip .art { order: 0; }
+    .cards { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 520px) { .cards { grid-template-columns: 1fr; } .chip { left: 16px; top: 20px; } footer a { margin: 0 16px 0 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <a class="logo" href="#"><img src="icon.png" alt="">TrueGrid</a>
+  <div class="links"><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></div>
+  <!-- shortcut: no App Store link until the app is approved; swap the href in then. -->
+  <a class="btn" href="#pricing">Coming soon</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-text">
+    <h1>Your exact grid.<br>Anywhere.</h1>
+    <p class="mono">MGRS land navigation for iPhone, iPad and Apple Watch. GPS works with no signal, and so does TrueGrid.</p>
+    <div><a class="btn leaf" href="#features">See how it works ↓</a></div>
+    <div class="badges">
+      <span class="btn ghost"> App Store · soon</span>
+      <span class="btn ghost">⌚ Apple Watch</span>
+    </div>
+  </div>
+  <div class="hero-art">
+    <div class="chip"><small>YOUR GRID · ±5 m</small><b>11S KB 71456 80704</b></div>
+    <div class="phone"><img src="img/screen-grid.jpg" alt="TrueGrid showing a live MGRS grid reference"></div>
+    <p class="caption">Live from GPS<br>no signal needed</p>
+  </div>
+  <a class="spin" href="#features" aria-label="Scroll to features">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs><path id="c" d="M50,50 m-38,0 a38,38 0 1,1 76,0 a38,38 0 1,1 -76,0"/></defs>
+      <text><textPath href="#c">MGRS · land nav · offline · </textPath></text>
+    </svg>
+    <span aria-hidden="true">↓</span>
+  </a>
+</div>
+
+<section class="center">
+  <span class="pill">Why TrueGrid</span>
+  <h2 style="margin-top:16px">Built for people who navigate<br class="d"> by grid, not by street name</h2>
+  <p class="mono">Hunters, hikers, search and rescue, soldiers and cadets. One clear number, one tap to share it, no account and no tracking.</p>
+</section>
+
+<section class="split" id="features">
+  <div class="art"><div class="phone"><img src="img/screen-map.jpg" alt="Topo map with the MGRS grid and saved points" loading="lazy"></div></div>
+  <div class="text">
+    <span class="pill">Maps</span>
+    <h2>Topo, satellite and streets, with the grid on top</h2>
+    <p class="mono">Pan the map and the crosshair gives the grid reference, distance and azimuth from you. With Pro, download an area before you go and use it with no signal.</p>
+    <div class="stats"><div><b>3</b><span class="mono">map styles</span></div><div><b>1 m</b><span class="mono">grid precision</span></div></div>
+  </div>
+</section>
+
+<section class="split flip">
+  <div class="art"><div class="phone"><img src="img/screen-measure.jpg" alt="Measure screen with distance and azimuth" loading="lazy"></div></div>
+  <div class="text">
+    <span class="pill">Measure</span>
+    <h2>Distance and azimuth in one tap</h2>
+    <p class="mono">Pick any two points. TrueGrid gives the distance and the grid azimuth in degrees and mils, then walks you there with an arrow.</p>
+    <a class="btn" href="#pricing">Free on every plan</a>
+  </div>
+</section>
+
+<section class="split">
+  <div class="art" style="background:#000"><div class="phone"><img src="img/screen-night.jpg" alt="Red night mode" loading="lazy"></div></div>
+  <div class="text">
+    <span class="pill">Night</span>
+    <h2>Red night mode keeps your night vision</h2>
+    <p class="mono">One tap turns the whole app red on black, maps included, so a glance at your phone doesn't blind you.</p>
+  </div>
+</section>
+
+<section class="center">
+  <span class="pill">Everything else</span>
+  <h2 style="margin-top:16px">Small app. Everything you need.</h2>
+  <div class="cards" style="text-align:left">
+    <div class="card"><div class="ic">📍</div><h3>Saved points</h3><p class="mono">Name, star and find them again, with distance and bearing to each one.</p></div>
+    <div class="card hot"><div class="ic">🧭</div><h3>Routes</h3><p class="mono">Plan straight legs between points, with distance and azimuth for every leg.</p></div>
+    <div class="card"><div class="ic">⌚</div><h3>Apple Watch</h3><p class="mono">Your grid on your wrist. Save a point without taking out your phone.</p></div>
+    <div class="card"><div class="ic">🗂</div><h3>KML and KMZ</h3><p class="mono">Bring points in from Google Earth or other apps, and send them out again.</p></div>
+  </div>
+</section>
+
+<section class="center">
+  <span class="pill">iPad and Watch</span>
+  <h2 style="margin-top:16px">Same grid on every screen</h2>
+  <div class="devices">
+    <div class="ipad"><img src="img/screen-ipad.jpg" alt="TrueGrid on iPad with points next to the map" loading="lazy"></div>
+    <div class="watch"><img src="img/screen-watch.png" alt="TrueGrid on Apple Watch" loading="lazy"></div>
+  </div>
+</section>
+
+<section class="center" id="pricing">
+  <span class="pill">Pricing</span>
+  <h2 style="margin-top:16px">Your grid is always free</h2>
+  <div class="plans" style="text-align:left">
+    <div class="plan">
+      <h3>Free</h3>
+      <div class="price">$0</div>
+      <ul><li>Live grid in MGRS, UTM and lat/long</li><li>Map, measure and navigate</li><li>10 saved points</li><li>Your grid on Apple Watch</li></ul>
+    </div>
+    <div class="plan pro">
+      <h3>Pro</h3>
+      <div class="price">$19.99 <small>/ year · or $34.99 once</small></div>
+      <ul><li>Unlimited saved points</li><li>Routes</li><li>Offline maps</li><li>KML and KMZ import and export</li><li>Your points on Apple Watch</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="center" id="faq">
+  <span class="pill">FAQ</span>
+  <h2 style="margin-top:16px">Frequently asked questions</h2>
+  <div class="faq" style="text-align:left">
+    <details open><summary><span class="n">01</span>Does it work without signal?<span class="plus">+</span></summary><p class="mono">Yes. Your grid, measuring and navigating use GPS, which needs no signal. Maps need internet the first time, or download areas ahead with Pro.</p></details>
+    <details><summary><span class="n">02</span>How accurate is it?<span class="plus">+</span></summary><p class="mono">As accurate as your device's GPS, usually within a few metres outdoors. The app always shows the current accuracy.</p></details>
+    <details><summary><span class="n">03</span>Do I need an account?<span class="plus">+</span></summary><p class="mono">No. There's no sign-up, no ads and no tracking. Your points stay on your device.</p></details>
+    <details><summary><span class="n">04</span>Can I cancel Pro?<span class="plus">+</span></summary><p class="mono">Anytime, in your iPhone's Settings under Subscriptions. Or buy lifetime once and never think about it.</p></details>
+    <details><summary><span class="n">05</span>Which grid formats are supported?<span class="plus">+</span></summary><p class="mono">MGRS, UTM, latitude/longitude in decimal, and degrees-minutes-seconds.</p></details>
+  </div>
+  <p class="mono" style="margin-top:20px">More answers on the <a href="support">support page</a>.</p>
+</section>
+
+<section>
+  <div class="cta">
+    <h2>Ready when the signal isn't</h2>
+    <p class="mono">TrueGrid is coming soon to the App Store.</p>
+    <a class="btn leaf" href="mailto:bilaldeveloper900@gmail.com">Get notified at launch</a>
+  </div>
+</section>
+
+<footer>
+  <span>© 2026 TrueGrid · No account · No ads · No tracking</span>
+  <span><a href="support">Support</a><a href="privacy">Privacy</a><a href="mailto:bilaldeveloper900@gmail.com">Contact</a></span>
+</footer>
+
+</div>
+</body>
+</html>
